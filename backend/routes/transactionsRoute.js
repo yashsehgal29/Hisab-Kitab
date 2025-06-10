@@ -7,23 +7,22 @@ const router = express.Router();
 router.get("/summary/:id", async (req, res) => {
     try {
         const { id } = req.params;
-        const balanceresult = await sql`
-            SELECT COALESCE(SUM(amount), 0) AS balance FROM transactions WHERE user_id = ${id};
-        `
+       
         //incomeresult is the sum of all the amounts that are greater than 0
         const incomeresult = await sql`
             SELECT COALESCE(SUM(amount), 0) AS income FROM transactions
-            WHERE user_id = ${id} AND amount > 0;
+            WHERE user_id = ${id} AND category = 'income';
         `
         //expenseresult is the sum of all the amounts that are less than 0
         const expenseresult = await sql`
             SELECT COALESCE(SUM(amount), 0) AS expense FROM transactions
-            WHERE user_id = ${id} AND amount < 0;
+            WHERE user_id = ${id} AND category = 'expense';
         `
         res.status(200).json({
-            total: balanceresult[0].balance,  // Changed from 'balance' to 'total'
+            // Changed from 'balance' to 'total'
             income: incomeresult[0].income,
-            expense: Math.abs(expenseresult[0].expense) // Make expense positive for display
+            expense: expenseresult[0].expense, // Make expense positive for display
+            total: (incomeresult[0].income - expenseresult[0].expense).toFixed(2)
         })
     } catch (error) {
         console.error("Error fetching summary:", error);
@@ -36,7 +35,7 @@ router.get("/:id", async (req, res) => {
         const { id } = req.params;
         console.log(id)
         const transaction = await sql`SELECT * FROM transactions WHERE user_id = ${id} ORDER BY created_at DESC`;
-        console.log(transaction);
+        // console.log(transaction);
         res.status(200).json(transaction);
     } catch (error) {
         console.error("Error fetching transactions:", error);
