@@ -4,8 +4,16 @@ import { useState } from "react";
 
 const API_URL = "http://192.168.0.145:3000/api";
 
+export interface Transaction {
+  id: string;
+  title: string;
+  amount: number;
+  created_at: string;
+  category: string;
+}
+
 export const useTransactions = (userId: string | undefined) => {
-  const [transactions, setTransactions] = useState([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [summary, setSummary] = useState({
     total: 0,
     income: 0,
@@ -21,18 +29,14 @@ export const useTransactions = (userId: string | undefined) => {
     }
 
     try {
-      console.log("Fetching transactions for userId:", userId);
-      console.log("API URL:", `${API_URL}/transactions/${userId}`);
-
       const response = await fetch(`${API_URL}/transactions/${userId}`);
-      console.log("Response status:", response.status);
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
       const data = await response.json();
-      console.log("Transactions data:", data);
+
       setTransactions(data);
     } catch (error) {
       console.log("Failed to fetch transactions");
@@ -48,21 +52,14 @@ export const useTransactions = (userId: string | undefined) => {
     }
 
     try {
-      console.log("Fetching summary for userId:", userId);
-      console.log(
-        "Summary API URL:",
-        `${API_URL}/transactions/summary/${userId}`
-      );
-
       const response = await fetch(`${API_URL}/transactions/summary/${userId}`);
-      console.log("Summary response status:", response.status);
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
       const data = await response.json();
-      console.log("Summary data:", data);
+
       setSummary(data);
     } catch (error) {
       console.error("Error fetching summary:", error);
@@ -78,7 +75,6 @@ export const useTransactions = (userId: string | undefined) => {
 
     setLoading(true);
     try {
-      console.log("Loading data for userId:", userId);
       await Promise.all([fetchTransactions(), fetchSummary()]);
     } catch (error) {
       console.error("Error loading data:", error);
@@ -111,7 +107,7 @@ export const useTransactions = (userId: string | undefined) => {
   );
 
   const addTransaction = useCallback(
-    async (transaction: any) => {
+    async (transaction: any): Promise<boolean> => {
       try {
         const response = await fetch(`${API_URL}/transactions`, {
           method: "POST",
@@ -121,10 +117,20 @@ export const useTransactions = (userId: string | undefined) => {
           body: JSON.stringify(transaction)
         });
         if (!response.ok) {
-          throw new Error("Failed to add transaction");
+          const errorBody = await response.text();
+          console.error(
+            "Failed to add transaction. Status:",
+            response.status,
+            "Body:",
+            errorBody
+          );
+          throw new Error(
+            `Failed to add transaction. Server responded with ${response.status}: ${errorBody}`
+          );
         }
         await loadData();
         Alert.alert("Success", "Transaction added successfully");
+        return true;
       } catch (error) {
         console.error("Error adding transaction:", error);
         if (error instanceof Error) {
@@ -132,6 +138,7 @@ export const useTransactions = (userId: string | undefined) => {
         } else {
           Alert.alert("Error", "An unknown error occurred");
         }
+        return false;
       }
     },
     [loadData]
@@ -140,10 +147,7 @@ export const useTransactions = (userId: string | undefined) => {
   // FIXED: Remove loadData from dependency array to prevent infinite loop
   useEffect(() => {
     if (userId) {
-      console.log("useEffect triggered with userId:", userId);
       loadData();
-    } else {
-      console.log("useEffect: No userId provided");
     }
   }, [userId]); // Only depend on userId, not loadData
 
